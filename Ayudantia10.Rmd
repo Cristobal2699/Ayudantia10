@@ -1,0 +1,71 @@
+---
+title: "Ayudantía 10 "
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Cargamos librerías 
+```{r}
+library(tidyverse)
+library(e1071)
+library(caret)
+library(rstan)
+#library(rstanarm)
+library(rsample)
+library(ROCR)
+```
+##Cargamos Dataset a trabajar
+```{r}
+getwd()
+setwd("/cloud/project/Ayudantia_DataMining01_2021-main/Ayudantia 10")
+credit_card <- read.csv("UCI_Credit_Card.csv", sep = ",")
+
+```
+##Búsqueda de datos faltantes 
+Lo primero que debemos hacer es revisar si existen datos faltantes en nuestra base de datos, esto es si tienen el valor de NA.
+
+Para esto utilizamos la función summary de R base y verificamos si es que hay datos NA.
+```{r}
+summary(credit_card)
+```
+
+##Eliminamos variables o datos sobrantes al análisis
+```{r}
+credit_card$ID <- NULL
+
+credit_card$SEX <- factor(credit_card$SEX, levels=1:2, labels=c("Male", "Female"))
+credit_card$EDUCATION <- as.factor(credit_card$EDUCATION)
+credit_card$MARRIAGE <- as.factor(credit_card$MARRIAGE)
+credit_card$default.payment.next.month <- factor(credit_card$default.payment.next.month, levels = 0:1, labels=c("No", "Yes"))
+
+```
+## Luego de ordenar nuestro Dataset, procederemos a realizar nuestro método Bayesiano
+```{r}
+set.seed(42)
+sample <- sample(1:nrow(credit_card), .8*30000)
+
+trainData <- credit_card[sample,]
+testData <-  credit_card[-sample,]
+
+modelo_nb <- naiveBayes(default.payment.next.month~SEX+MARRIAGE+AGE+PAY_0+PAY_6+BILL_AMT1+BILL_AMT6+PAY_AMT1+PAY_AMT6, trainData, laplace=1)
+
+pred_nb <- predict(modelo_nb, newdata = testData)
+confusionMatrix(data=pred_nb, reference = testData$default.payment.next.month)
+```
+##Graficamos nuestro modelo
+
+```{r}
+pred_test_nb <- predict(modelo_nb, newdata = testData, type="raw")
+p_test_nb <- prediction(pred_test_nb[,2], testData$default.payment.next.month)
+perf_nb <- performance(p_test_nb, "tpr", "fpr")
+plot(perf_nb, colorize=T)
+```
+
+```{r}
+performance(p_test_nb, "auc")@y.values
+
+```
+## Se concluye que la calidad del modelo es de media-baja observando su precisión.
+
